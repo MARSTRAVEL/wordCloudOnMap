@@ -1,8 +1,4 @@
 /*
- * Building BVH + Quad Tree
- *  getWprdPixcels():
-    *args:  text
-    *return: pixelsArray
  * keyword        latitude       longitude
  * pizza          62.3          29.4
  * fast           62.4          29.3
@@ -17,12 +13,14 @@ const canvasWidth = 400;
 const canvasHeight = 400;
 const wordWidthOfBvh = 200;
 const wordHeightOfBvh = 200;
+let overlay;
 // when accept inputWords, order according to its frequency
 const inputWords = [{ keyword: 'pizza', weight: 2 },
   { keyword: 'fast', weight: 1 },
   { keyword: 'food', weight: 1 },
-
 ];
+const latitude = (62.3 + 62.4 + 62.5 + 62.4) / 4;
+const longitude = (29.4 + 29.3 + 29.5 + 29.4) / 4;
 const ratio = (wordWeight) => {
   let sum = 0;
   for (let i = 0; i < inputWords.length; i += 1) {
@@ -229,35 +227,23 @@ function drawInputwords(pFCan) {
       wordsList[i].drawPosition[1]);
   }
 }
-findDrawPosition();
 // decode canvas to base64
 function convertCanvasToBase64() {
+  findDrawPosition();
   const cas = document.createElement('canvas');
-  const img = document.createElement('IMG');
+  // const img = document.createElement('IMG');
   const ctx = cas.getContext('2d');
-  cas.width = 400;
-  cas.height = 400;
-  ctx.fillStyle = 'blck';
+  cas.width = canvasWidth;
+  cas.height = canvasHeight;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   drawInputwords(ctx);
-  document.body.appendChild(cas);
-  const base64Data = cas.toDataURL('image/png', 1);// 1表示质量(无损压缩)
-  img.setAttribute('src', base64Data);
-  // 把画布的内容转换为base64编码格式的图片
-  return img;
+  const base64Data = cas.toDataURL('image/png', 1);// 1 means original quatity
+  // img.setAttribute('src', base64Data);
+  // decode content in canvas to base64 format pic
+  return base64Data;
 }
-function initializeMap() {
-  const myLatLng = { lat: -25.363, lng: 131.044 };
-  const myOptions = {
-    zoom: 4,
-    center: myLatLng,
-    mapTypeId: 'terrain',
-  };
-  const map = new google.maps.Map(document.getElementById('googleMap'), myOptions);
 
-  const marker = new google.maps.Marker({
-    position: myLatLng,
-    title: 'clicked',
-  });
 
   const infowindow = new google.maps.InfoWindow({
     position: myLatLng,
@@ -267,5 +253,16 @@ function initializeMap() {
     infowindow.setContent(convertCanvasToBase64());
     infowindow.open(map, marker);
   });
+  // latitude +- 0.05  longitude +-0.1
+  const bounds = new google.maps.LatLngBounds(
+    new google.maps.LatLng(62.350000, 29.300000),
+    new google.maps.LatLng(62.450000, 29.500000),
+  );
+
+  // The photograph is courtesy of the U.S. Geological Survey.
+  const srcImage = convertCanvasToBase64();
+
+  overlay = new WordCloudOverlay(bounds, srcImage, map);
+  google.maps.event.addDomListener(window, 'click');
 }
-initializeMap();
+initMap();
