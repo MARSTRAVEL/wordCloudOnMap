@@ -6,5 +6,4 @@ convertCanvasToBase64():
   automatically create a canvas that width is 400 and height is 400, then plot word cloud on the canvas return as base64 format picture
 
 initializeMap():
-  initialize Google map and infowindow, then set base64 format picture as content of infowindow
-  
+  initialize Google map and add DomListener overlay.toggle()

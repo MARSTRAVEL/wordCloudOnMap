@@ -13,6 +13,7 @@ const canvasWidth = 400;
 const canvasHeight = 400;
 const wordWidthOfBvh = 200;
 const wordHeightOfBvh = 200;
+// eslint-disable-next-line
 let overlay;
 // when accept inputWords, order according to its frequency
 const inputWords = [{ keyword: 'pizza', weight: 2 },
@@ -333,8 +334,7 @@ class WordCloudOverlay extends google.maps.OverlayView {
 }
 
 function initMap() {
-  const btn = document.getElementById('btn');
-  console.log(btn);
+  // const btn = document.getElementById('btn');
   const map = new google.maps.Map(document.getElementById('googleMap'), {
     zoom: 11,
     center: { lat: latitude, lng: longitude },
