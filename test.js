@@ -1,6 +1,13 @@
 /* global google */
 const latitude = (62.3 + 62.4 + 62.5 + 62.4) / 4;
 const longitude = (29.4 + 29.3 + 29.5 + 29.4) / 4;
+const ud = {goals: [{ goalName: "Redi_kalasatama", gameId: "1918", lat: "60.187521378007666", lon: "24.977166958017733"},
+{ goalName: "Bird_kalasatama", gameId: "1918", lat: "60.18503298217574", lon: "24.98100788132706"},
+{ goalName: "Daycare_kalasatama", gameId: "1918", lat: "60.18414479522747", lon: "24.97950584427872"},
+{ goalName: "Brigde_kalasatama", gameId: "1918", lat: "60.18213361646922", lon: "24.98268157975235"},
+{ goalName: "Torni_kalasatama", gameId: "1918", lat: "60.18883", lon: "24.97985790000007"},
+], visited: []};
+console.log(ud.goals.length);
 
 class WordCloudOverlay extends google.maps.OverlayView {
   constructor(bounds, image) {
@@ -90,10 +97,9 @@ const initMap = () => {
     mapTypeId: 'satellite',
   });
   return map;
-}
-
+};
 const test = () => {
-  //const map = initMap();
+  const map = initMap();
   document.getElementById('bt1').addEventListener('click', () => {
     const bounds = new google.maps.LatLngBounds(
       new google.maps.LatLng(62.281819, -150.287132),
@@ -125,4 +131,17 @@ const test = () => {
   });
 };
 
-initMap();
+const getLatAndLon = (data) => {
+  const sumLat = data.goals.reduce((accumulator, currentValue) => {
+    const suLat = accumulator + parseFloat(currentValue.lat);
+    return suLat;
+  }, 0);
+
+  const sumLon = data.goals.reduce((accumulator, currentValue) => {
+    const suLon = accumulator + parseFloat(currentValue.lon);
+    return suLon;
+  }, 0);
+  return [sumLat / data.goals.length, sumLon / data.goals.length];
+};
+
+console.log(getLatAndLon(ud));

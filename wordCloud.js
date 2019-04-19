@@ -336,11 +336,10 @@ const initMap = () => {
   const map = new google.maps.Map(document.getElementById('googleMap'), {
     zoom: 11,
     center: { lat: latitude, lng: longitude },
+    mapTypeId: 'satellite',
   });
   return map;
 };
-
-initMap();
 // processData received from server and return as object:
 // {gameId: "1916", desc: "Helsinki East", lat: "60.21994128892997", lon: "25.07458478943865"}
 const processGameData = (dataFromServer) => {
@@ -397,9 +396,22 @@ const getKeyWords = (dataFromServer) => {
     }, {});
   return processedData;
 };
+const getLatAndLon = (dataFromServer) => {
+  const sumLat = dataFromServer.goals.reduce((accumulator, currentValue) => {
+    const suLat = accumulator + parseFloat(currentValue.lat);
+    return suLat;
+  }, 0);
+
+  const sumLon = dataFromServer.goals.reduce((accumulator, currentValue) => {
+    const suLon = accumulator + parseFloat(currentValue.lon);
+    return suLon;
+  }, 0);
+  return [sumLat / dataFromServer.goals.length, sumLon / dataFromServer.goals.length];
+};
 $(document).ready(() => {
+  const map = initMap();
+  // get users and show in drop down list
   getGameNamesFromServer(POINTS_SERVER, gamesParameter)
-  // update games
     .then((re) => {
       let htmlCode = '<option value="">Select game</option>';
       // get gameId
@@ -414,12 +426,14 @@ $(document).ready(() => {
       console.log('Failed!', error);
     });
   /* eslint func-names: ["error", "never"] */
-  $('#game').on('change', function () {
+  $('#game').on('change', function () { // detect what game is selected and draw word cloud for user's game
     if ($(this).val() != 0) {
       getGameNamesFromServer(POINTS_SERVER, userParameter.concat(`${$(this).val()}`))
         .then((resul) => {
           const rl = [];
           const proData = getKeyWords(JSON.parse(resul));
+          const latAndLon = getLatAndLon(JSON.parse(resul));
+          console.log(latAndLon);
           // get [{keyword: '', weight: }, {}...] format
           Object.entries(proData).forEach(([key, value]) => rl.push({ keyword: `${key}`, weight: `${value}` }));
           const wordsList = rl.map(word => (
@@ -436,6 +450,8 @@ $(document).ready(() => {
             new google.maps.LatLng(62.281819, -150.287132),
             new google.maps.LatLng(62.400471, -150.005608),
           );
+
+          // The photograph is courtesy of the U.S. Geological Survey.
           const srcImage = 'https://www.freelogodesign.org/Content/img/logo-ex-7.png';
 
           // The custom USGSOverlay object contains the USGS image,
