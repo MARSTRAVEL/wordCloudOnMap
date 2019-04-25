@@ -9,33 +9,45 @@ You can also ignore these and do another variant (explained in second step below
 
  */
 /* global google */
-const MinBoxSize = 1; // minimun box size
+const MinBoxSize = 2; // minimun box size
 const fontFamily = 'sans-serif'; // font style
-const initialFontSize = 80; // font size
-const canvasWidth = 400;
-const canvasHeight = 400;
+const canvasWidth = 600;
+const canvasHeight = 600;
 const wordWidthOfBvh = 200;
 const wordHeightOfBvh = 200;
+const maxFontSize = 55;
+const minFontSize = 15;
 // https:// works
 const POINTS_SERVER = 'https://cs.uef.fi/o-mopsi/controller/OMopsiGameController.php';
 const gamesParameter = 'request_type=get_games&userId=-1';
 const userParameter = 'request_type=get_goals&gameId=';
-// eslint-disable-next-line
 
-// when accept inputWords, order according to its frequency
-const inputWords = [{ keyword: 'pizza', weight: 2 },
-  { keyword: 'fast', weight: 1 },
-  { keyword: 'food', weight: 1 },
-];
-const latitude = (62.3 + 62.4 + 62.5 + 62.4) / 4;
-const longitude = (29.4 + 29.3 + 29.5 + 29.4) / 4;
-const ratio = (wordWeight) => {
-  let sum = 0;
-  for (let i = 0; i < inputWords.length; i += 1) {
-    sum += inputWords[i].weight;
+const getMultiplierAndoffset = (inputWds) => {
+  let multiplier;
+  const maxAppearWord = inputWds.reduce((max, item) => (item.weight > max ? item.weight : max),
+    inputWds[0].weight);
+  const minAppearWord = inputWds.reduce((min, item) => (item.weight < min ? item.weight : min),
+    inputWds[0].weight);
+  if (maxAppearWord === minAppearWord) {
+    multiplier = 0;
+  } else {
+    multiplier = (maxFontSize - minFontSize) / (maxAppearWord - minAppearWord);
   }
-  return wordWeight / sum;
+  const offset = minFontSize - minAppearWord * multiplier;
+  return [multiplier, offset];
 };
+
+const wordFontSize = (inputW) => {
+  const [multiplier, offset] = getMultiplierAndoffset(inputW);
+  for (let item in inputW) {
+    if (inputW.hasOwnProperty(item)) {
+      // const fontSize = count * multiplier + offset;
+ inputW[item].fontSize = inputW[item].weight * multiplier + offset;
+    }
+  }
+  return inputW;
+};
+
 // create canvas for getting pixcel of each word, doesnt show this canvas
 const canvasGetPixcel = document.createElement('canvas');
 canvasGetPixcel.width = wordWidthOfBvh;
@@ -95,8 +107,8 @@ const boundingBoxIntersectWord = (wordPixel, boundingBox) => {
   return false;
 };
 // get pxels array of each word
-const getWordPixel = (text, wordRatio) => {
-  const fontSize = wordRatio * initialFontSize;
+const getWordPixel = (text, wordfont) => {
+  const fontSize = wordfont;
   c.clearRect(0, 0, wordWidthOfBvh * 2, wordHeightOfBvh * 2);
   c.save();
   c.textBaseline = 'top';
@@ -152,12 +164,12 @@ const buildBvhTree = (wordPixel, boundingBox) => {
   return null;
 };
 // initialize BvhTree
-const initializeBvhTree = (text, wordRatio) => {
+const initializeBvhTree = (text, wordfontS) => {
   const initialBoundingBox = {
     x0: 0, y0: 0, x1: wordWidthOfBvh, y1: wordHeightOfBvh,
   };
   return buildBvhTree(
-    { wordPixelArray: getWordPixel(text, wordRatio), ...initialBoundingBox },
+    { wordPixelArray: getWordPixel(text, wordfontS), ...initialBoundingBox },
     initialBoundingBox,
   );
 };
@@ -173,8 +185,6 @@ function moveSteps(t) {
   const y = (a + b * angle) * Math.sin(angle) + initialY;
   return [x, y];
 }
-// create word Object: wrd,BvhTree,weight,drawX,drawY,drawColor,drawFont
-// this function will be initialized automatically
 
 // two trees overlapTest
 const twoBoundingBoxesIntersect = (subTreeA, subTreeB, positionA, positionB) => {
@@ -201,7 +211,7 @@ const treesOverlaped = (treeA, treeB, positionA, positionB) => {
   return false;
 };
 // find drawPosition for each word
-const findDrawPosition = () => {
+const findDrawPosition = (wordsList) => {
   let step = 1;
   for (let i = 1; i < wordsList.length; i += 1) {
     for (let j = 0; j < i; j += 1) {
@@ -217,7 +227,7 @@ const findDrawPosition = () => {
   }
 };
 // update draw position of all words
-function drawInputwords(pFCan) {
+function drawInputwords(pFCan, wordsList) {
   const pFCanvas = pFCan;
   for (let i = 0; i < wordsList.length; i += 1) {
     pFCanvas.font = `${~~wordsList[i].drawFont}px ${fontFamily}`;// eslint-disable-line no-bitwise
@@ -228,16 +238,15 @@ function drawInputwords(pFCan) {
   }
 }
 // decode canvas to base64
-function convertCanvasToBase64() {
-  findDrawPosition();
+function convertCanvasToBase64(wordList) {
+  findDrawPosition(wordList);
   const cas = document.createElement('canvas');
-  // const img = document.createElement('IMG');
   const ctx = cas.getContext('2d');
   cas.width = canvasWidth;
   cas.height = canvasHeight;
-  ctx.fillStyle = 'white';
+  ctx.fillStyle = "rgba(0, 0, 0, 0.0)";
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-  drawInputwords(ctx);
+  drawInputwords(ctx, wordList);
   const base64Data = cas.toDataURL('image/png', 1);// 1 means original quatity
   // img.setAttribute('src', base64Data);
   // decode content in canvas to base64 format pic
@@ -333,13 +342,15 @@ class WordCloudOverlay extends google.maps.OverlayView {
 }
 
 const initMap = () => {
+  // const btn = document.getElementById('btn');
   const map = new google.maps.Map(document.getElementById('googleMap'), {
     zoom: 11,
-    center: { lat: latitude, lng: longitude },
+    center: { lat: 60.185532, lng: 24.980044},
     mapTypeId: 'satellite',
   });
   return map;
 };
+
 // processData received from server and return as object:
 // {gameId: "1916", desc: "Helsinki East", lat: "60.21994128892997", lon: "25.07458478943865"}
 const processGameData = (dataFromServer) => {
@@ -382,19 +393,39 @@ const getGameNamesFromServer = (url, param) => {
     request.send(param);
   });
 };
+// process data of user and return wordsList
 const getKeyWords = (dataFromServer) => {
+  let rl = [];
   const processedData = dataFromServer.goals
   // get slpited goal names[...][...][...]
     .map(name => name.goalName.split(/[_\W]+/))
     // combine Array into one
     .reduce((firstElement, leftElement) => firstElement.concat(leftElement), [])
+    .filter(name => name.length > 1)
   // calaulate frequency
     .reduce((o, k) => {
       const i = k;
       i in o ? o[i] += 1 : (o[i] = 1);
       return o;
     }, {});
-  return processedData;
+
+    // create {keyword:.., weight:..}
+  Object.entries(processedData)
+    .forEach(([key, value]) => rl.push({ keyword: `${key}`, weight: `${value}` }));
+  // sort object according to its weight
+  rl = rl.sort((obj1, obj2) => obj2.weight - obj1.weight);
+  // add ratio property to rl
+     rl = wordFontSize(rl);
+  const wordsList = rl.map(word => (
+    {
+      word: word.keyword,
+      bvhTree: initializeBvhTree(word.keyword, word.fontSize),
+      weight: word.weight,
+      drawPosition: moveSteps(1), // initialPosition at centeral point of Canvas
+      drawFont:word.fontSize,
+    }
+  ));
+  return wordsList;
 };
 const getLatAndLon = (dataFromServer) => {
   const sumLat = dataFromServer.goals.reduce((accumulator, currentValue) => {
@@ -408,10 +439,11 @@ const getLatAndLon = (dataFromServer) => {
   }, 0);
   return [sumLat / dataFromServer.goals.length, sumLon / dataFromServer.goals.length];
 };
+
 $(document).ready(() => {
   const map = initMap();
-  // get users and show in drop down list
   getGameNamesFromServer(POINTS_SERVER, gamesParameter)
+  // update games
     .then((re) => {
       let htmlCode = '<option value="">Select game</option>';
       // get gameId
@@ -426,40 +458,33 @@ $(document).ready(() => {
       console.log('Failed!', error);
     });
   /* eslint func-names: ["error", "never"] */
-  $('#game').on('change', function () { // detect what game is selected and draw word cloud for user's game
+  $('#game').on('change', function () {
     if ($(this).val() != 0) {
       getGameNamesFromServer(POINTS_SERVER, userParameter.concat(`${$(this).val()}`))
         .then((resul) => {
-          const rl = [];
-          const proData = getKeyWords(JSON.parse(resul));
+          console.log(resul);
+          const wordList = getKeyWords(JSON.parse(resul));
+          console.log(wordList);
           const latAndLon = getLatAndLon(JSON.parse(resul));
           console.log(latAndLon);
-          // get [{keyword: '', weight: }, {}...] format
-          Object.entries(proData).forEach(([key, value]) => rl.push({ keyword: `${key}`, weight: `${value}` }));
-          const wordsList = rl.map(word => (
-            {
-              word: word.keyword,
-              bvhTree: initializeBvhTree(word.keyword, ratio(word.weight)),
-              weight: word.weight,
-              drawPosition: moveSteps(1), // initialPosition at centeral point of Canvas
-              drawFont: ratio(word.weight) * initialFontSize,
-            }
-          ));
-          console.log(wordsList);
+          // latitude +- 0.05  longitude +-0.1
           const bounds = new google.maps.LatLngBounds(
-            new google.maps.LatLng(62.281819, -150.287132),
-            new google.maps.LatLng(62.400471, -150.005608),
+            // southWest
+            new google.maps.LatLng(latAndLon[0]-0.06, latAndLon[1]-0.13),
+            // northEast
+            new google.maps.LatLng(latAndLon[0]+0.06, latAndLon[1]+0.13),
           );
 
           // The photograph is courtesy of the U.S. Geological Survey.
-          const srcImage = 'https://www.freelogodesign.org/Content/img/logo-ex-7.png';
+          const srcImage = convertCanvasToBase64(wordList);
 
           // The custom USGSOverlay object contains the USGS image,
           // the bounds of the image, and a reference to the map.
           const overlay = new WordCloudOverlay(bounds, srcImage);
+          const myLatLng = new google.maps.LatLng(latAndLon[0], latAndLon[1]);
+          map.setCenter(myLatLng);
           overlay.setMap(map);
         });
     }
   });
 });
-// initMap();
