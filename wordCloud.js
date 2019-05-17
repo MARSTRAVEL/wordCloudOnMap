@@ -6,6 +6,7 @@ POINTS_SERVER = 'https://cs.uef.fi/o-mopsi/controller/OMopsiGameController.php
 - latitude and longitude are the coordinates. Use those to decide where your overlay will be placed.
 You can also ignore these and do another variant (explained in second step below)
 - you can also use the thumbnail to display on map, but it is optional, I think.
+url: https://cs.uef.fi/~liuyun/
 
  */
 /* global google */
