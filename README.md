@@ -1,5 +1,5 @@
 # wordCloudOnMap
-The functional part is to set up a marker at given latitude and longitude in Google map. When click maker it will plot word cloud according to given weighted words.
+cluster text and draw word cloud,  sconvert to base64Data format pic, set up  as overlay over GooGle map at given latitude and longitude.
 
 Following are two main functions:
 convertCanvasToBase64():
