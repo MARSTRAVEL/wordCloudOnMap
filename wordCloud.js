@@ -6,16 +6,14 @@ POINTS_SERVER = 'https://cs.uef.fi/o-mopsi/controller/OMopsiGameController.php
 - latitude and longitude are the coordinates. Use those to decide where your overlay will be placed.
 You can also ignore these and do another variant (explained in second step below)
 - you can also use the thumbnail to display on map, but it is optional, I think.
-url: https://cs.uef.fi/~liuyun/
-
  */
 /* global google */
 const MinBoxSize = 2; // minimun box size
 const fontFamily = 'sans-serif'; // font style
-const canvasWidth = 600;
-const canvasHeight = 600;
-const wordWidthOfBvh = 200;
-const wordHeightOfBvh = 200;
+const canvasWidth = 700;
+const canvasHeight = 700;
+const wordWidthOfBvh = 350;
+const wordHeightOfBvh = 300;
 const maxFontSize = 55;
 const minFontSize = 15;
 // https:// works
@@ -23,32 +21,27 @@ const POINTS_SERVER = 'https://cs.uef.fi/o-mopsi/controller/OMopsiGameController
 const gamesParameter = 'request_type=get_games&userId=-1';
 const userParameter = 'request_type=get_goals&gameId=';
 
-const getMultiplierAndoffset = (inputWds) => {
+const wordFontSize = (inputWords) => {
   let multiplier;
-  const maxAppearWord = inputWds.reduce((max, item) => (item.weight > max ? item.weight : max),
-    inputWds[0].weight);
-  const minAppearWord = inputWds.reduce((min, item) => (item.weight < min ? item.weight : min),
-    inputWds[0].weight);
+  const maxAppearWord = Math.max(...inputWords.map(o => o.weight));
+  const minAppearWord = Math.min(...inputWords.map(o => o.weight));
   if (maxAppearWord === minAppearWord) {
     multiplier = 0;
   } else {
-    multiplier = (maxFontSize - minFontSize) / (maxAppearWord - minAppearWord);
+    multiplier = maxFontSize - minFontSize;
   }
-  const offset = minFontSize - minAppearWord * multiplier;
-  return [multiplier, offset];
-};
-
-const wordFontSize = (inputW) => {
-  const [multiplier, offset] = getMultiplierAndoffset(inputW);
-  for (let item in inputW) {
-    if (inputW.hasOwnProperty(item)) {
-      // const fontSize = count * multiplier + offset;
- inputW[item].fontSize = inputW[item].weight * multiplier + offset;
+  for (let item in inputWords) {
+    if (inputWords.hasOwnProperty(item)) {
+      if (inputWords[item].weight <= 1) {
+        inputWords[item].fontSize = minFontSize;
+      } else {
+        inputWords[item].fontSize = Math.round(Math.log(inputWords[item].weight) / Math.log(maxAppearWord)
+        * multiplier + minFontSize);
+      }
     }
   }
-  return inputW;
+  return inputWords;
 };
-
 // create canvas for getting pixcel of each word, doesnt show this canvas
 const canvasGetPixcel = document.createElement('canvas');
 canvasGetPixcel.width = wordWidthOfBvh;
@@ -108,12 +101,14 @@ const boundingBoxIntersectWord = (wordPixel, boundingBox) => {
   return false;
 };
 // get pxels array of each word
-const getWordPixel = (text, wordfont) => {
+const getWordPixel = (text, wordfont, rotateDegree) => {
   const fontSize = wordfont;
   c.clearRect(0, 0, wordWidthOfBvh * 2, wordHeightOfBvh * 2);
   c.save();
   c.textBaseline = 'top';
   c.font = `${~~fontSize}px ${fontFamily}`;// eslint-disable-line no-bitwise
+  c.translate(70, 0);
+  c.rotate(rotateDegree * Math.PI / 180);
   c.fillText(text, 0, 0);
   c.restore();
   // imageData:width、height、data
@@ -165,27 +160,91 @@ const buildBvhTree = (wordPixel, boundingBox) => {
   return null;
 };
 // initialize BvhTree
-const initializeBvhTree = (text, wordfontS) => {
+const initializeBvhTree = (text, wordfontS, rotateDegree) => {
   const initialBoundingBox = {
     x0: 0, y0: 0, x1: wordWidthOfBvh, y1: wordHeightOfBvh,
   };
   return buildBvhTree(
-    { wordPixelArray: getWordPixel(text, wordfontS), ...initialBoundingBox },
+    { wordPixelArray: getWordPixel(text, wordfontS, rotateDegree), ...initialBoundingBox },
     initialBoundingBox,
   );
 };
 // x=vt∗cos(wt)
 // y=vt∗cos(wt)
-function moveSteps(t) {
-  const initialX = canvasWidth / 2;
-  const initialY = canvasHeight / 2;
-  const a = 17;
-  const b = 3;
-  const angle = 0.5 * t;
-  const x = (a + b * angle) * Math.cos(angle) + initialX;
-  const y = (a + b * angle) * Math.sin(angle) + initialY;
-  return [x, y];
+function moveSteps(a, b, step) {
+  const angle = 0.35 * step;
+  const x = (12 + 4 * angle) * Math.cos(angle) + a;
+  const y = (12 + 4 * angle) * Math.sin(angle) + b;
+  return [Math.round(x), Math.round(y)];
 }
+// unplacedWord overlapplacedWordsArray
+const wordOverlapeAllPlaced = (word, wordarray) => {
+  // not overlap
+  let overlap = false;
+  const unplacedWord = word;
+  const placedWords = wordarray;
+  for (let i = 0; i < placedWords.length; i += 1) {
+    if (placedWords[i].rotate === true) {
+      if (treesOverlaped(placedWords[i].rotatebvhTree, unplacedWord.bvhTree,
+        placedWords[i].drawPosition, unplacedWord.drawPosition)) {
+        overlap = true;
+        break;
+      }
+    } else if (treesOverlaped(placedWords[i].bvhTree, unplacedWord.bvhTree,
+      placedWords[i].drawPosition, unplacedWord.drawPosition)) {
+      overlap = true;
+      break;
+    }
+  }
+
+  if (overlap === true) {
+    unplacedWord.rotate = true;
+    for (let i = 0; i < placedWords.length; i += 1) {
+      if (placedWords[i].rotate === true) {
+        if (treesOverlaped(placedWords[i].rotatebvhTree, unplacedWord.rotatebvhTree,
+          placedWords[i].drawPosition, unplacedWord.drawPosition)) {
+          overlap = true;
+          unplacedWord.rotate = false;
+          break;
+        }
+        overlap = false;
+      } else {
+        if (treesOverlaped(placedWords[i].bvhTree, unplacedWord.rotatebvhTree,
+          placedWords[i].drawPosition, unplacedWord.drawPosition)) {
+          overlap = true;
+          unplacedWord.rotate = false;
+          break;
+        }
+        overlap = false;
+      }
+    }
+  }
+  return overlap;
+};
+
+// find drawPosition for each word
+const findDrawPosition = (wordsList) => {
+  let step;
+  const wl = wordsList;
+  let wordToPlace;
+  const placedWordArray = [];
+  placedWordArray.push(wl.shift());
+  while (wl.length !== 0) {
+    step = 1;
+    // take one word if there is
+    wordToPlace = wl.shift();
+
+    // if wordToPlace overlap at least one word in placedWordArray
+    while (wordOverlapeAllPlaced(wordToPlace, placedWordArray)) {
+      step += 1;
+      wordToPlace.drawPosition = moveSteps(wordToPlace.drawPosition[0],
+        wordToPlace.drawPosition[1], step);
+    }
+    // update placedWordArray
+    placedWordArray.push(wordToPlace);
+  }
+  return placedWordArray;
+};
 
 // two trees overlapTest
 const twoBoundingBoxesIntersect = (subTreeA, subTreeB, positionA, positionB) => {
@@ -212,42 +271,43 @@ const treesOverlaped = (treeA, treeB, positionA, positionB) => {
   return false;
 };
 // find drawPosition for each word
-const findDrawPosition = (wordsList) => {
-  let step = 1;
-  for (let i = 1; i < wordsList.length; i += 1) {
-    for (let j = 0; j < i; j += 1) {
-      while (treesOverlaped(wordsList[i].bvhTree,
-        wordsList[j].bvhTree,
-        wordsList[i].drawPosition,
-        wordsList[j].drawPosition)) {
-        step += 1;
-        wordsList[i].drawPosition = moveSteps(step);
-      }
-      wordsList[i].drawPosition = moveSteps(step);
+
+const roateText = (canvasRotateText, posX, posY, degree, fontSize, text) => {
+  const pFCanvas = canvasRotateText;
+  pFCanvas.save();
+  pFCanvas.textBaseline = 'top';
+  pFCanvas.font = `${~~fontSize}px sans-serif`;// eslint-disable-line no-bitwise
+  pFCanvas.fillStyle = 'red';
+  // test 'interesting' fontSize 55
+  pFCanvas.translate(posX, posY);
+  pFCanvas.rotate(degree * Math.PI / 180);
+  pFCanvas.fillText(text, 0, 0);
+  pFCanvas.restore();
+};
+
+function drawInputwords(pFCanvas, wordsList) {
+  for (let i = 0; i < wordsList.length; i += 1) {
+    if (wordsList[i].rotate === true) {
+      roateText(pFCanvas, wordsList[i].drawPosition[0], wordsList[i].drawPosition[1],
+        90, wordsList[i].fontSize, wordsList[i].word);
+    } else {
+      roateText(pFCanvas, wordsList[i].drawPosition[0], wordsList[i].drawPosition[1],
+        0, wordsList[i].fontSize, wordsList[i].word);
     }
   }
-};
-// update draw position of all words
-function drawInputwords(pFCan, wordsList) {
-  const pFCanvas = pFCan;
-  for (let i = 0; i < wordsList.length; i += 1) {
-    pFCanvas.font = `${~~wordsList[i].drawFont}px ${fontFamily}`;// eslint-disable-line no-bitwise
-    pFCanvas.fillStyle = 'red';
-    pFCanvas.textBaseline = 'top';
-    pFCanvas.fillText(wordsList[i].word, wordsList[i].drawPosition[0],
-      wordsList[i].drawPosition[1]);
-  }
 }
+
 // decode canvas to base64
 function convertCanvasToBase64(wordList) {
-  findDrawPosition(wordList);
+  const worArray = findDrawPosition(wordList);
   const cas = document.createElement('canvas');
+  document.body.appendChild(cas);
   const ctx = cas.getContext('2d');
   cas.width = canvasWidth;
   cas.height = canvasHeight;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.0)";
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-  drawInputwords(ctx, wordList);
+  //ctx.fillStyle = "rgba(0, 0, 0, 0.0)";
+  //ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  drawInputwords(ctx, worArray);
   const base64Data = cas.toDataURL('image/png', 1);// 1 means original quatity
   // img.setAttribute('src', base64Data);
   // decode content in canvas to base64 format pic
@@ -420,10 +480,11 @@ const getKeyWords = (dataFromServer) => {
   const wordsList = rl.map(word => (
     {
       word: word.keyword,
-      bvhTree: initializeBvhTree(word.keyword, word.fontSize),
-      weight: word.weight,
-      drawPosition: moveSteps(1), // initialPosition at centeral point of Canvas
-      drawFont:word.fontSize,
+      bvhTree: initializeBvhTree(word.keyword, word.fontSize, 0),
+      rotatebvhTree: initializeBvhTree(word.keyword, word.fontSize, 90),
+      rotate: false,
+      drawPosition: [Math.floor(Math.random() * 100) + 250, Math.floor(Math.random() * 100) + 250], // initialPosition at centeral point of Canvas
+      fontSize: word.fontSize,
     }
   ));
   return wordsList;
@@ -463,11 +524,8 @@ $(document).ready(() => {
     if ($(this).val() != 0) {
       getGameNamesFromServer(POINTS_SERVER, userParameter.concat(`${$(this).val()}`))
         .then((resul) => {
-          console.log(resul);
           const wordList = getKeyWords(JSON.parse(resul));
-          console.log(wordList);
           const latAndLon = getLatAndLon(JSON.parse(resul));
-          console.log(latAndLon);
           // latitude +- 0.05  longitude +-0.1
           const bounds = new google.maps.LatLngBounds(
             // southWest
